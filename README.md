@@ -1,5 +1,7 @@
 # PensionFit
 
+GitHub Repository: https://github.com/junwon1694-create/oss_final_assignment
+
 미래에셋 연금투자 가이드북의 생애주기별 연금 투자 관점, 투자 성향, 계좌별 제약, 인컴형 상품, 자동 운용형 상품 개념을 바탕으로 만든 교육용 연금 포트폴리오 추천 시스템입니다.
 
 이 프로젝트는 오픈소스소프트웨어실습 기말 대체 과제를 위해 제작되었습니다. Streamlit 프론트엔드에서 사용자의 정보를 입력받고, FastAPI 백엔드가 추천 로직을 처리한 뒤 JSON 결과를 반환합니다.
