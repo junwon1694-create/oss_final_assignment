@@ -363,8 +363,10 @@ def render_checklist(items: list[str]) -> None:
 
 # ── 세션 초기화 ───────────────────────────────────────────
 
+if "life_stage_radio" not in st.session_state:
+    st.session_state["life_stage_radio"] = "20~30대"
 if "life_stage" not in st.session_state:
-    st.session_state["life_stage"] = "20~30대"
+    st.session_state["life_stage"] = st.session_state["life_stage_radio"]
 
 
 # ── 헤더 ──────────────────────────────────────────────────
@@ -423,7 +425,6 @@ with input_col:
         life_stage = st.radio(
             "생애주기",
             list(LIFE_STAGES.keys()),
-            index=list(LIFE_STAGES.keys()).index(st.session_state["life_stage"]),
             key="life_stage_radio",
             label_visibility="collapsed",
             horizontal=True,
