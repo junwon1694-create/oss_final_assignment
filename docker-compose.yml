@@ -1,0 +1,18 @@
+services:
+  back:
+    build:
+      context: ./back
+    container_name: pensionfit-back
+    ports:
+      - "8000:8000"
+
+  front:
+    build:
+      context: ./front
+    container_name: pensionfit-front
+    environment:
+      - BACKEND_URL=http://back:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - back
