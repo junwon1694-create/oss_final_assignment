@@ -309,9 +309,8 @@ st.markdown(
         margin-top: 0.75rem;
     }
 
-    /* selectbox / segmented label 크기 */
-    div[data-testid="stSelectbox"] label,
-    div[data-testid="stSegmentedControl"] label {
+    /* selectbox label 크기 */
+    div[data-testid="stSelectbox"] label {
         font-size: 0.8rem !important;
         font-weight: 600 !important;
         color: #64748b !important;
@@ -415,6 +414,12 @@ LIFE_STAGES = {
     "60대 이상": ("🏖️", "현금흐름과 안정성\n중심"),
 }
 
+PORTFOLIO_OPTIONS = {
+    "20~30대": ["성장형", "밸런스형"],
+    "40~50대": ["밸런스형", "안정형"],
+    "60대 이상": ["밸런스형", "안정형"],
+}
+
 with input_col:
     with st.container(border=True):
         st.markdown("#### 사용자 정보 입력")
@@ -452,10 +457,18 @@ with input_col:
 
         col_a, col_b = st.columns(2)
         with col_a:
-            risk_tolerance = st.selectbox(
-                "투자 성향",
-                ["공격형", "균형형", "안정형"],
-                help="수익률 목표와 변동성 감내 수준을 선택합니다.",
+            portfolio_options = PORTFOLIO_OPTIONS[life_stage]
+            if (
+                "portfolio_type" not in st.session_state
+                or st.session_state["portfolio_type"] not in portfolio_options
+            ):
+                st.session_state["portfolio_type"] = portfolio_options[0]
+
+            portfolio_type = st.selectbox(
+                "투자 유형",
+                portfolio_options,
+                key="portfolio_type",
+                help="가이드북 표에 제시된 포트폴리오 유형만 선택합니다.",
             )
         with col_b:
             account_type = st.selectbox(
@@ -464,27 +477,12 @@ with input_col:
                 help="계좌 종류에 따라 위험자산 한도와 추천 비중이 달라집니다.",
             )
 
-        st.markdown('<hr class="pf-divider">', unsafe_allow_html=True)
-
-        income_preference = st.segmented_control(
-            "인컴 선호도",
-            ["성장 중심", "배당·분배금 선호"],
-            default="성장 중심",
-        )
-        management_style = st.segmented_control(
-            "운용 방식",
-            ["직접 조합형", "자동 관리형"],
-            default="직접 조합형",
-        )
-
         st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
         payload = {
             "life_stage": life_stage,
-            "risk_tolerance": risk_tolerance,
+            "portfolio_type": portfolio_type,
             "account_type": account_type,
-            "income_preference": income_preference,
-            "management_style": management_style,
         }
 
         submitted = st.button(
@@ -505,7 +503,7 @@ with result_col:
                 <div class="result-empty">
                     <div class="result-empty-icon">📊</div>
                     <div class="result-empty-msg">
-                        생애주기·투자 성향을 선택한 뒤<br>
+                        생애주기·투자 유형을 선택한 뒤<br>
                         <strong>포트폴리오 추천 받기</strong> 버튼을 눌러주세요.
                     </div>
                 </div>
