@@ -190,19 +190,107 @@ ROLE_EXAMPLES = {
 }
 
 
+INCOME_ROLE_EXAMPLES = {
+    "20~30대": {
+        "공격수": [
+            "TIGER 미국S&P500",
+            "TIGER 200",
+            "TIGER 글로벌AI액티브",
+        ],
+        "미드필더": [
+            "TIGER 미국배당다우존스",
+            "TIGER 코리아배당다우존스",
+            "TIGER 미국나스닥100타겟데일리커버드콜",
+        ],
+        "수비수+골키퍼": [
+            "TIGER KRX금현물",
+            "TIGER 미국초단기(3개월이하)국채",
+            "TIGER 미국테크TOP10채권혼합Fn",
+            "미래에셋전략배분적격TDF2045",
+        ],
+    },
+    "40~50대": {
+        "공격수": [
+            "TIGER 미국S&P500",
+            "TIGER 미국테크TOP10",
+            "TIGER 글로벌AI액티브",
+        ],
+        "미드필더": [
+            "TIGER 미국배당다우존스",
+            "TIGER 코리아배당다우존스",
+            "TIGER 미국나스닥100타겟데일리커버드콜",
+        ],
+        "수비수+골키퍼": [
+            "TIGER KRX금현물",
+            "TIGER 미국초단기(3개월이하)국채",
+            "TIGER 미국나스닥100채권혼합Fn",
+            "미래에셋밸런스TRF안정형",
+        ],
+    },
+    "60대 이상": {
+        "공격수": [
+            "TIGER 미국S&P500",
+            "TIGER 200",
+        ],
+        "미드필더": [
+            "TIGER 코리아배당다우존스",
+            "TIGER 미국배당다우존스",
+            "TIGER 미국나스닥100타겟데일리커버드콜",
+            "TIGER 토탈월드스탁액티브",
+        ],
+        "수비수+골키퍼": [
+            "TIGER 머니마켓액티브",
+            "TIGER 미국초단기(3개월이하)국채",
+            "TIGER KRX금현물",
+            "미래에셋평생소득TIF",
+        ],
+    },
+}
+
+
 def get_formation(request: RecommendationRequest) -> dict:
     return GUIDE_FORMATIONS[request.life_stage][request.risk_tolerance]
 
 
+def apply_income_tilt(
+    request: RecommendationRequest, base_allocation: dict[str, int]
+) -> dict[str, int]:
+    allocation = base_allocation.copy()
+
+    if request.income_preference == "배당·분배금 선호":
+        shift = min(5, allocation["공격수"])
+        allocation["공격수"] -= shift
+        allocation["미드필더"] += shift
+
+    return allocation
+
+
+def get_role_description(request: RecommendationRequest, role: str) -> str:
+    if request.income_preference == "배당·분배금 선호":
+        if role == "미드필더":
+            return "배당·분배금과 분산투자를 통해 성장과 현금흐름의 균형을 잡는 자산"
+        if role == "수비수+골키퍼":
+            return "변동성 완충과 안정적 인출 기반을 담당하는 채권·금현물·TIF형 자산"
+
+    return ROLE_DESCRIPTIONS[role]
+
+
+def get_role_examples(request: RecommendationRequest, role: str) -> list[str]:
+    if request.income_preference == "배당·분배금 선호":
+        return INCOME_ROLE_EXAMPLES[request.life_stage][role]
+
+    return ROLE_EXAMPLES[request.life_stage][role]
+
+
 def build_allocation_items(
-    life_stage: LifeStage, allocation: dict[str, int]
+    request: RecommendationRequest, allocation: dict[str, int]
 ) -> list[AllocationItem]:
     return [
         AllocationItem(
             asset_class=role,
             ratio=ratio,
-            role=ROLE_DESCRIPTIONS[role],
-            examples=ROLE_EXAMPLES[life_stage][role],
+            role=get_role_description(request, role),
+            examples=get_role_examples(request, role),
         )
         for role, ratio in allocation.items()
     ]
@@ -225,11 +313,11 @@ def build_product_types(request: RecommendationRequest) -> list[str]:
 
     if request.income_preference == "배당·분배금 선호":
         products.append(
-            "인컴 선호 반영: 비중은 가이드북 포메이션을 유지하고, 미드필더 안에서 배당다우존스·월배당·커버드콜형 예시를 우선 확인하도록 안내합니다."
+            "인컴 선호 반영: 공격수 비중 5%p를 미드필더로 옮겨 배당다우존스·월배당·커버드콜형 후보를 더 우선합니다."
         )
     else:
         products.append(
-            "성장 중심 반영: 비중은 가이드북 포메이션을 유지하고, 공격수와 대표지수형 미드필더를 중심으로 확인하도록 안내합니다."
+            "성장 중심 반영: 가이드북 기본 포메이션을 유지하고, 공격수와 대표지수형 미드필더를 중심으로 확인하도록 안내합니다."
         )
 
     if request.management_style == "자동 관리형":
@@ -247,13 +335,18 @@ def build_product_types(request: RecommendationRequest) -> list[str]:
 def build_reasons(
     request: RecommendationRequest,
     formation: dict,
+    allocation: dict[str, int],
     risk_asset_ratio: int,
 ) -> list[str]:
-    allocation = formation["allocation"]
+    base_allocation = formation["allocation"]
 
     reasons = [
         formation["mapping_note"],
-        f"{formation['basis']}을 기준으로 공격수 {allocation['공격수']}%, 미드필더 {allocation['미드필더']}%, 수비수+골키퍼 {allocation['수비수+골키퍼']}%를 적용했습니다.",
+        (
+            f"{formation['basis']}의 기본 비중은 공격수 {base_allocation['공격수']}%, "
+            f"미드필더 {base_allocation['미드필더']}%, "
+            f"수비수+골키퍼 {base_allocation['수비수+골키퍼']}%입니다."
+        ),
     ]
 
     if request.life_stage == "20~30대":
@@ -264,16 +357,24 @@ def build_reasons(
         reasons.append("연금 인출기는 꾸준한 현금흐름과 안정적 자산관리가 중요해 수비수+골키퍼 비중을 높게 둡니다.")
 
     if request.income_preference == "배당·분배금 선호":
-        reasons.append("배당·분배금 선호는 포트폴리오 비중을 임의로 바꾸지 않고, 미드필더 상품군 선택 기준에 반영했습니다.")
+        reasons.append(
+            (
+                "배당·분배금 선호를 반영해 공격수 5%p를 미드필더로 옮겼습니다. "
+                f"최종 비중은 공격수 {allocation['공격수']}%, 미드필더 {allocation['미드필더']}%, "
+                f"수비수+골키퍼 {allocation['수비수+골키퍼']}%입니다."
+            )
+        )
     else:
-        reasons.append("성장 중심 선택은 포트폴리오 비중을 임의로 바꾸지 않고, 공격수와 대표지수형 상품군 선택 기준에 반영했습니다.")
+        reasons.append(
+            "성장 중심 선택은 장기 자산증식 목적에 맞춰 가이드북 기본 포메이션 비중을 유지했습니다."
+        )
 
     if request.management_style == "자동 관리형":
         reasons.append("자동 관리형 선택은 TDF, TRF, TIF 등 자동 자산배분형 상품군 안내에 반영했습니다.")
     else:
         reasons.append("직접 조합형 선택은 포메이션별 상품군을 직접 나누어 담는 방식으로 안내했습니다.")
 
-    reasons.append(f"공격수+미드필더 합산 비중은 {risk_asset_ratio}%입니다.")
+    reasons.append(f"최종 공격수+미드필더 합산 비중은 {risk_asset_ratio}%입니다.")
     return reasons
 
 
@@ -303,16 +404,17 @@ def build_account_rules(account_type: AccountType, risk_asset_ratio: int) -> lis
 def build_input_effects(
     request: RecommendationRequest,
     formation: dict,
+    allocation: dict[str, int],
     risk_asset_ratio: int,
 ) -> list[str]:
-    allocation = formation["allocation"]
+    base_allocation = formation["allocation"]
 
     effects = [
         f"생애주기: {request.life_stage}를 선택해 {formation['formation']} 포메이션을 적용했습니다.",
         (
             f"투자 성향: {request.risk_tolerance} 성향을 가이드북 표의 포메이션 열에 매핑해 "
-            f"공격수 {allocation['공격수']}%, 미드필더 {allocation['미드필더']}%, "
-            f"수비수+골키퍼 {allocation['수비수+골키퍼']}% 비중을 결정했습니다."
+            f"기본 비중 공격수 {base_allocation['공격수']}%, 미드필더 {base_allocation['미드필더']}%, "
+            f"수비수+골키퍼 {base_allocation['수비수+골키퍼']}%를 정했습니다."
         ),
     ]
 
@@ -327,11 +429,15 @@ def build_input_effects(
 
     if request.income_preference == "배당·분배금 선호":
         effects.append(
-            "인컴 선호도: 배당·분배금 선호를 반영해 배당, 월분배, 커버드콜, TIF 등 현금흐름형 상품군 후보를 우선 안내했습니다."
+            (
+                "인컴 선호도: 배당·분배금 선호를 반영해 공격수 5%p를 미드필더로 옮기고, "
+                f"최종 비중을 공격수 {allocation['공격수']}%, 미드필더 {allocation['미드필더']}%, "
+                f"수비수+골키퍼 {allocation['수비수+골키퍼']}%로 조정했습니다."
+            )
         )
     else:
         effects.append(
-            "인컴 선호도: 성장 중심 선택을 반영해 공격수와 대표지수형 미드필더 상품군 후보를 우선 안내했습니다."
+            "인컴 선호도: 성장 중심 선택을 반영해 가이드북 기본 비중을 유지하고 공격수와 대표지수형 미드필더 상품군 후보를 우선 안내했습니다."
         )
 
     if request.management_style == "자동 관리형":
@@ -369,7 +475,7 @@ def health_check() -> dict[str, str]:
 @app.post("/recommend", response_model=RecommendationResponse)
 def recommend_portfolio(request: RecommendationRequest) -> RecommendationResponse:
     formation = get_formation(request)
-    allocation = formation["allocation"]
+    allocation = apply_income_tilt(request, formation["allocation"])
     risk_asset_ratio = allocation["공격수"] + allocation["미드필더"]
     safe_asset_ratio = allocation["수비수+골키퍼"]
 
@@ -383,10 +489,10 @@ def recommend_portfolio(request: RecommendationRequest) -> RecommendationRespons
         guide_basis=formation["basis"],
         risk_asset_ratio=risk_asset_ratio,
         safe_asset_ratio=safe_asset_ratio,
-        allocation=build_allocation_items(request.life_stage, allocation),
-        input_effects=build_input_effects(request, formation, risk_asset_ratio),
+        allocation=build_allocation_items(request, allocation),
+        input_effects=build_input_effects(request, formation, allocation, risk_asset_ratio),
         product_types=build_product_types(request),
-        reasons=build_reasons(request, formation, risk_asset_ratio),
+        reasons=build_reasons(request, formation, allocation, risk_asset_ratio),
         account_rules=build_account_rules(request.account_type, risk_asset_ratio),
         action_plan=build_action_plan(request),
         disclaimer=(
